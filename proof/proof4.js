@@ -68,16 +68,16 @@ function LazyBall(x, y, r) {
 				dx /= d;
 				dy /= d;
 
-				vx -= dx * dt * Math.pow(d/maxDist, 6);
-				vy -= dy * dt * Math.pow(d/maxDist, 6);
+				vx -= dx * dt * Math.pow(d/maxDist, 10);
+				vy -= dy * dt * Math.pow(d/maxDist, 10);
 			}	
 			
 			if(minDist && EPS < minDist - d) {
 				dx /= d;
 				dy /= d;
 
-				vx += dx * dt * Math.pow(d/minDist, 6);
-				vy += dy * dt * Math.pow(d/minDist, 6);
+				vx += dx * dt * Math.pow(d/minDist, 10);
+				vy += dy * dt * Math.pow(d/minDist, 10);
 			}				
 		});		
 		
@@ -204,20 +204,20 @@ getCanvas().addEventListener('mousedown', function(event) {
 });
 
 (function() {
-	var ballLeft = struct1.slice(0, 6);
-	var ballRight = struct1.slice(6, 12);
+	var ballLeft = struct1.slice(0, 12);
+	var ballRight = struct1.slice(12*11, 12*11+12)
 	var alignX = 0, alignY = 0;
 	alignFns.push(function() {		
 		var a = Math.atan2(allBalls[0].getY() - allBalls[11].getY(),
 						  allBalls[0].getX() - allBalls[11].getX());		
 		
 		ballLeft.some(function(ball) { 
-			ball.addForce(Math.cos(a+Math.PI/2)*alignY*10, Math.sin(a+Math.PI/2)*alignY*10)
-			ball.addForce(Math.cos(a+Math.PI/2)*alignX*10, Math.sin(a+Math.PI/2)*alignX*10);
+			ball.addForce(Math.cos(a)*alignY*10, Math.sin(a)*alignY*10)
+			ball.addForce(Math.cos(a)*alignX*10, Math.sin(a)*alignX*10);
 		});		
 		ballRight.some(function(ball) { 
-			ball.addForce(Math.cos(a+Math.PI/2)*alignY*10, Math.sin(a+Math.PI/2)*alignY*10);		
-			ball.addForce(-Math.cos(a+Math.PI/2)*alignX*10, -Math.sin(a+Math.PI/2)*alignX*10);
+			ball.addForce(Math.cos(a)*alignY*10, Math.sin(a)*alignY*10);		
+			ball.addForce(-Math.cos(a)*alignX*10, -Math.sin(a)*alignX*10);
 		});
 	});
 	
