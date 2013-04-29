@@ -17,7 +17,7 @@
 	global.getCanvas = function() { return canvas; }
 })(this);
 
-var EPS = 1 / (1 << 10);
+var EPS = 1 / (1 << 5);
 
 function LazyBall(x, y, r) {
 	this.getX = function() { return x };
@@ -79,7 +79,7 @@ function LazyBall(x, y, r) {
 			var dy = y - ball.getY();
 			var d = Math.sqrt(dx*dx + dy*dy);
 			
-			if(d > 0 && d < r + ball.getR()) {
+			if(d > 0 && EPS < r + ball.getR() - d) {
 				dx /= d;
 				dy /= d;
 
@@ -101,46 +101,51 @@ function LazyJoint(ball, minDist, maxDist) {
 var allBalls = [];
 
 function makeStruct(centerX, centerY, structWidth, structHeight) {
+	var R = 5;
+	var D = R*2.005;
+
 	var balls = [];
 	for(var y = 0; y < structHeight; y++)
 		for(var x = 0; x < structWidth; x++) 
-			balls.push(new LazyBall(x*15 + centerX, y*15 + centerY, 5));
+			balls.push(new LazyBall(x*D + centerX, y*D + centerY, R));
 	for(var y = 0; y < structHeight; y++)
 		for(var x = 0; x < structWidth; x++) { 
 			var ball = balls[y*structWidth+x];
 			
-			for(var dx = -1; dx < 1; dx++)
-				for(var dy = -1; dy < 1; dy++) {
+			for(var dx = -1; dx <= 1; dx++)
+				for(var dy = -1; dy <= 1; dy++) {
+					if(x+dx < 0 || x+dx >= structWidth || y+dy < 0 || y+dy >= structHeight)
+						continue;
 					var dBall = balls[(y+dy)*structWidth+(x+dx)];
-					if(dBall && dBall!=ball && dx!=dy)
-						dBall.biJoint(new LazyJoint(ball, 11, 11));
-					else if(dBall && dBall!=ball && Math.abs(dx)!=Math.abs(dy))
-						dBall.biJoint(new LazyJoint(ball, 11 * Math.sqrt(2), 11 * Math.sqrt(2)));
+					if(dBall && dBall!=ball && dx*dy==0)
+						dBall.biJoint(new LazyJoint(ball, (D+1/D), D));
+					else if(dBall && dBall!=ball && Math.abs(dx)*Math.abs(dy)==1)
+						dBall.biJoint(new LazyJoint(ball, (D+1/D) * Math.sqrt(2), D * Math.sqrt(2)));
 				}
 	}
 		
 	var topLeft = 0;
-	var topRight = structWidth;
-	var bottomLeft = structWidth*(structHeight-1) 
+	var topRight = structWidth-1;
+	var bottomLeft = structWidth*(structHeight-1); 
 	var bottomRight = structWidth*(structHeight-1)+structWidth-1;
 	
-	var axisDist = structWidth*30;
-	var crossDist = structWidth*30 * Math.sqrt(2);
+	var axisDist = (structWidth-1)*D;
+	var crossDist = (structWidth-1)*D * Math.sqrt(2);
 		
-	balls[topLeft].biJoint(new LazyJoint(balls[topRight], axisDist, axisDist));
-	balls[topLeft].biJoint(new LazyJoint(balls[bottomLeft], axisDist, axisDist));
-	balls[topLeft].biJoint(new LazyJoint(balls[bottomRight], crossDist, crossDist));
+	balls[topLeft].biJoint(new LazyJoint(balls[topRight], axisDist+1/axisDist, axisDist));
+	balls[topLeft].biJoint(new LazyJoint(balls[bottomLeft], axisDist+1/axisDist, axisDist));
+	balls[topLeft].biJoint(new LazyJoint(balls[bottomRight], crossDist+Math.sqrt(2), crossDist));
 	
-	balls[topRight].biJoint(new LazyJoint(balls[bottomRight], axisDist, axisDist));
-	balls[topRight].biJoint(new LazyJoint(balls[bottomLeft], crossDist, crossDist));
+	balls[topRight].biJoint(new LazyJoint(balls[bottomRight], axisDist+1/axisDist, axisDist));
+	balls[topRight].biJoint(new LazyJoint(balls[bottomLeft], crossDist+Math.sqrt(2)/crossDist, crossDist));
 	
-	balls[bottomRight].biJoint(new LazyJoint(balls[bottomLeft], axisDist, axisDist));
+	balls[bottomRight].biJoint(new LazyJoint(balls[bottomLeft], axisDist+1/axisDist, axisDist));
 
 	allBalls.push.apply(allBalls, balls);
 }	
 		
 makeStruct(-150, -150, 12, 12);
-makeStruct(50, 50, 12, 12);
+makeStruct(-20, -50, 12, 12);
 
 // animation
 
@@ -152,24 +157,53 @@ makeStruct(50, 50, 12, 12);
 	window.requestAnimationFrame = requestAnimationFrame;
 })();
 
+var alignFns = [];
+
 function render() {
-	clearCanvas();
+	clearCanvas();			
 
 	allBalls.some(function(ball) {
 		ball.update(0.5);
 		drawRect(ball.getX()-ball.getR(), ball.getY()-ball.getR(), ball.getR()*2, ball.getR()*2, 'red');
 	});
-	
+
+//	alignFns.some(function(fn){fn()});
+
 	requestAnimationFrame(render)
 }
 
 render();
 
-getCanvas().addEventListener('mousemove', function(event) {
+getCanvas().addEventListener('mousedown', function(event) {
 	var x = (event.x - 256);
 	var y = (event.y - 256);
 	allBalls.filter(function(ball) { return ball.distance(x, y) < 10 }).some(function(ball) {
-		ball.setX(x);
-		ball.setY(y);
+//		alignFns.push(function() {
+			ball.setX(x);
+			ball.setY(y);
+//		});
+		
+		
+		return true;
 	});
+});
+
+[0, 11].some(function(offset) {
+	var ball = allBalls[offset];
+	var alignX = ball.getX(), alignY = ball.getY();
+	alignFns.push(function() {
+		ball.setX(alignX);
+		ball.setY(alignY);
+	});
+	
+	window.addEventListener('keydown', function(event) {
+		if(event.keyCode == 38)
+			alignY -= 1;
+		else if(event.keyCode == 40)
+			alignY += 1;
+		else if(event.keyCode == 37)
+			alignX -= 1;
+		else if(event.keyCode == 39)
+			alignX += 1;
+	})
 })
