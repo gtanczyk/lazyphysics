@@ -74,20 +74,11 @@ for(var x = 0; x < 6; x++)
 		
 balls[0].joint(balls.reduce(function(r, ball) { 
 	ball.joint(r); 
-	return ball; }, balls[0]));
+	return ball; 
+}, balls[0]));
 
-//var oBall1 = new LazyBall(-20, 0, 5);
-//var oBall2 = new LazyBall(20, 0, 5);
-//var oBall3 = new LazyBall(0, 20, 5);
-//
-//oBall1.joint(oBall2, oBall3);
-//oBall2.joint(oBall1, oBall3);
-//oBall3.joint(oBall1, oBall2);
-//
-//var otherBalls = [ oBall1, oBall2, oBall3 ];
 
-var allBalls = balls;//.concat(otherBalls);
-
+var allBalls = balls;
 
 // animation
 
@@ -99,9 +90,6 @@ var allBalls = balls;//.concat(otherBalls);
 	window.requestAnimationFrame = requestAnimationFrame;
 })();
 
-//var myBallX = ball1.getX();
-//var myBallY = ball1.getY();
-
 function render() {
 	clearCanvas();
 
@@ -110,20 +98,7 @@ function render() {
 		drawRect(ball.getX()-ball.getR(), ball.getY()-ball.getR(), ball.getR()*2, ball.getR()*2, 'red');
 	});
 	
-//	otherBalls.some(function(ball) {
-//		ball.update(0.5);
-//		drawRect(ball.getX()-ball.getR(), ball.getY()-ball.getR(), ball.getR()*2, ball.getR()*2, 'red');
-//	});
-	
-//	ball1.setX(myBallX);
-//	ball1.setY(myBallY);
-	
 	requestAnimationFrame(render)
 }
 
 render();
-
-getCanvas().addEventListener('mousemove', function(event) {
-	myBallX = (event.x - 256);
-	myBallY = (event.y - 256);
-})
