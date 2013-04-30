@@ -1,0 +1,38 @@
+<html>
+<head>
+    <title>Lazy physics proof</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+</head>
+<body>
+    <div style="position: absolute; left: 512px">
+        <h1>LazyPhysics: It works! / To działa!</h1>
+        <p>Sterowanie: strzałki / Steering: arrows</p>
+        <b>Zasada działania:</b>
+        <ul>
+            <li>Podstawą są kulki, które mogą mieć różną średnicę i wzajemnie się odpychają</li>
+            <li>Pomiędzy kulkami mogą istnieć wiązania</li>
+            <li>Są dwa rodzaje wiązań: DistanceJoint(minimalna i/lub maksymalna odległość) oraz AngularJoint(zachowanie kątów pomiędzy trzema kulkami)</li>
+            <li>Przy pomocy wiązań można stworzyć strukturę</li>
+        </ul>
+        <b>How it works:</b>
+        <ul>
+            <li>Everything is made up from balls, which are configurable(only radius atm.) and interact with each other</li>
+            <li>It is possible to make joints between balls</li>
+            <li>There are two types of joint: DistanceJoint(min/max distance) oraz AngularJoint(keep angles in triangle made up from 3 balls)</li>
+            <li>Structures are made from balls and joints</li>
+        </ul>
+        <b>Co dalej / What next</b>
+        <ul>
+            <li>Lepsza fizyka kulek, użyć poprawnych wzorów / Improve ball physics</li>
+            <li>Przerobić na liba / Make library</li>
+            <li>Użyć WebWorkera do przetwarzania w tle i jeszcze raz całość wsadzić do liba / Use webworkers and put it into another library</li>
+        </ul>
+        Autor: <a href="http://www.github.com/gtanczyk">Grzegorz Tańczyk</a>
+    </div>
+    <script type="text/javascript">
+     window.dojo = { declare: function(name, whatever, object) { return function() { return object; } } };
+    </script>
+    <script src="https://raw.github.com/gamedevpl/warsztat-game-demo/master/lib/vmath.js"> </script>
+    <script src="proof5.js" type="text/javascript"> </script>
+</body>
+</html>
