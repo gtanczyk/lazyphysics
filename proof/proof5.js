@@ -11,7 +11,10 @@
 	
 	global.drawRect = function(x, y, w, h, color) {
 		ctx.fillStyle = color;
-		ctx.fillRect(x+256, y+256, w, h);
+		ctx.beginPath();
+		ctx.arc(x+256, y+256, w, h, 0, 360);
+		ctx.closePath();
+		ctx.fill();
 	}
 	
 	global.getCanvas = function() { return canvas; }
@@ -19,13 +22,22 @@
 
 var EPS = 1 / (1 << 5);
 
-function LazyBall(x, y, r) {
+function LazyBall(x, y, r, opts) {
+	var x = x, y = y, r = r;
+	var vx = 0, vy = 0;	
+
 	this.getX = function() { return x };
 	this.getY = function() { return y };
 	this.getR = function() { return r };
+	
+	var P = this.P = function() { return [x, y] };
+	var V = this.V = function() { return [vx, vy] };
+	
 	this.setX = function(_x) { x = _x };
 	this.setY = function(_y) { y = _y };
 	this.setR = function(_r) { r = _r };
+	
+	this.getOpts = function() { return opts; }
 	
 	this.distance = function(_x, _y) {
 		return Math.sqrt(Math.pow(x-_x,2)+Math.pow(y-_y,2));
@@ -45,9 +57,7 @@ function LazyBall(x, y, r) {
 		}
 	};	
 	
-	var vx = 0, vy = 0;
-	
-	this.addForce = function(forceX, forceY) {
+	var addForce = this.addForce = function(forceX, forceY) {
 		vx += forceX;
 		vy += forceY;
 	}	
@@ -93,40 +103,62 @@ function LazyBall(x, y, r) {
 					dx /= d;
 					dy /= d;
 		
-					vx -= dx * dt * Math.pow(d/maxDist, 10);
-					vy -= dy * dt * Math.pow(d/maxDist, 10);
+					vx -= dx * (d - maxDist);
+					vy -= dy * (d - maxDist);
 				}	
 				
 				if(minDist && EPS < minDist - d) {
 					dx /= d;
 					dy /= d;
 		
-					vx += dx * dt * Math.pow(d/minDist, 10);
-					vy += dy * dt * Math.pow(d/minDist, 10);
+					vx += dx * (minDist - d);
+					vy += dy * (minDist - d);
 				}	
 			}	
 		}
 		
 	this.AngularJoint = function(leftBall, rightBall) {
+		var angleL = VMath.angle(VMath.sub(leftBall.P(), P()), VMath.sub(leftBall.P(), rightBall.P()));
+		
+		var angleP = VMath.angle(VMath.sub(P(), leftBall.P()), VMath.sub(P(), rightBall.P()));
+		var sinP = Math.sin(angleP);
+		
+		var angleR = Math.PI - angleL - angleP;
+		var sinR = Math.sin(angleR);
+	
 		this.redir = function(targetBall) {
-			return new leftBall.AngularJoint(targetBall, RightBall)
+			return new leftBall.AngularJoint(targetBall, rightBall)
 		}
 		
 		this.process = function(dt) {
+			var lR = VMath.sub(leftBall.P(), rightBall.P());
+			var dLR = VMath.length(lR);
+			
+			lR = VMath.normalize(lR);
+			rP = VMath.rotate(lR, -angleL);
+			
+			var bP = VMath.sub(leftBall.P(), VMath.scale(rP, dLR * sinR / sinP));
+			
+			var V = VMath.sub(bP, P());
+			var dV = VMath.length(V);
+			if(dV > EPS) {
+				V = VMath.normalize(V);
+				addForce.apply(null, VMath.scale(V, Math.pow(dV, 0.9)));
+			}
 		}		
 	}
 }
 
 var allBalls = [];
 
-function makeStruct(centerX, centerY, structWidth, structHeight) {
-	var R = 5;
+function makeStruct(centerX, centerY, structWidth, structHeight, opts) {
+	var R = 8;
 	var D = R*2.005;
 
 	var balls = [];
 	for(var y = 0; y < structHeight; y++)
 		for(var x = 0; x < structWidth; x++) 
-			balls.push(new LazyBall(x*D + centerX, y*D + centerY, R));
+			balls.push(new LazyBall(x*D + centerX, y*D + centerY, R, opts));
 	for(var y = 0; y < structHeight; y++)
 		for(var x = 0; x < structWidth; x++) { 
 			var ball = balls[y*structWidth+x];
@@ -137,36 +169,58 @@ function makeStruct(centerX, centerY, structWidth, structHeight) {
 						continue;
 					var dBall = balls[(y+dy)*structWidth+(x+dx)];
 					if(dBall && dBall!=ball && dx*dy==0)
-						dBall.biJoint(new dBall.DistanceJoint(ball, (D+1/D), D));
+						dBall.joint(new dBall.DistanceJoint(ball, (D+1/D), D));
 					else if(dBall && dBall!=ball && Math.abs(dx)*Math.abs(dy)==1)
-						dBall.biJoint(new dBall.DistanceJoint(ball, (D+1/D) * Math.sqrt(2), D * Math.sqrt(2)));
+						dBall.joint(new dBall.DistanceJoint(ball, (D+1/D) * Math.sqrt(2), D * Math.sqrt(2)));
 				}
+
+			[[[-1,0],[0,-1]], [[0,-1],[1,0]], [[1,0],[0,1]], [[0,1],[-1,0]]].some(function(dv) {
+				if(dv.some(function(d) {
+					var dx = d[0];
+					var dv = d[1];
+					return (x+dx < 0 || x+dx >= structWidth || y+dy < 0 || y+dy >= structHeight);
+				}))
+					return;					
+				
+				var ballLeft = balls[(y+dv[0][1])*structWidth+x+dv[0][0]];
+				var ballRight = balls[(y+dv[1][1])*structWidth+x+dv[1][0]];
+				if(ballLeft && ballRight)
+					ball.joint(new ball.AngularJoint(ballLeft, ballRight));				
+			});
 	}
 		
-	var topLeft = 0;
-	var topRight = structWidth-1;
-	var bottomLeft = structWidth*(structHeight-1); 
-	var bottomRight = structWidth*(structHeight-1)+structWidth-1;
+	var topLeft = balls[0];
+	var topRight = balls[structWidth-1];
+	var bottomLeft = balls[structWidth*(structHeight-1)]; 
+	var bottomRight = balls[structWidth*(structHeight-1)+structWidth-1];
 	
 	var axisDist = (structWidth-1)*D;
 	var crossDist = (structWidth-1)*D * Math.sqrt(2);
 		
-	balls[topLeft].biJoint(new balls[topLeft].DistanceJoint(balls[topRight], axisDist+1/axisDist, axisDist));
-	balls[topLeft].biJoint(new balls[topLeft].DistanceJoint(balls[bottomLeft], axisDist+1/axisDist, axisDist));
-	balls[topLeft].biJoint(new balls[topLeft].DistanceJoint(balls[bottomRight], crossDist+Math.sqrt(2), crossDist));
+	// distance joints
+	topLeft.biJoint(new topLeft.DistanceJoint(topRight, axisDist+1/axisDist, axisDist));
+	topLeft.biJoint(new topLeft.DistanceJoint(bottomLeft, axisDist+1/axisDist, axisDist));
+	topLeft.biJoint(new topLeft.DistanceJoint(bottomRight, crossDist+Math.sqrt(2), crossDist));
 	
-	balls[topRight].biJoint(new balls[topRight].DistanceJoint(balls[bottomRight], axisDist+1/axisDist, axisDist));
-	balls[topRight].biJoint(new balls[topRight].DistanceJoint(balls[bottomLeft], crossDist+Math.sqrt(2)/crossDist, crossDist));
+	topRight.biJoint(new topRight.DistanceJoint(bottomRight, axisDist+1/axisDist, axisDist));
+	topRight.biJoint(new topRight.DistanceJoint(bottomLeft, crossDist+Math.sqrt(2)/crossDist, crossDist));
 	
-	balls[bottomRight].biJoint(new balls[bottomRight].DistanceJoint(balls[bottomLeft], axisDist+1/axisDist, axisDist));
+	bottomRight.biJoint(new bottomRight.DistanceJoint(bottomLeft, axisDist+1/axisDist, axisDist));
+	
+	// angular joints
+	topLeft.biJoint(new topLeft.AngularJoint(bottomLeft, topRight));
+	topRight.biJoint(new topRight.AngularJoint(topLeft, bottomRight));
+//
+	bottomLeft.biJoint(new bottomLeft.AngularJoint(topLeft, bottomRight));
+	bottomRight.biJoint(new bottomRight.AngularJoint(bottomLeft, topRight));
 
 	allBalls.push.apply(allBalls, balls);
 	
 	return balls;
 }	
 		
-var struct1 = makeStruct(-150, -150, 12, 12);
-var struct2 = makeStruct(-40, -20, 12, 12);
+var struct1 = makeStruct(-150, -150, 6, 6, 'red');
+var struct2 = makeStruct(-40, -20, 6, 6, 'blue');
 
 // animation
 
@@ -185,7 +239,7 @@ function render() {
 
 	allBalls.some(function(ball) {
 		ball.update(0.5);
-		drawRect(ball.getX()-ball.getR(), ball.getY()-ball.getR(), ball.getR()*2, ball.getR()*2, 'red');
+		drawRect(ball.getX()-ball.getR(), ball.getY()-ball.getR(), ball.getR(), ball.getR(), ball.getOpts());
 	});
 
 	alignFns.some(function(fn){fn()});
@@ -210,20 +264,24 @@ getCanvas().addEventListener('mousedown', function(event) {
 });
 
 (function() {
-	var ballLeft = struct1.slice(0, 12);
-	var ballRight = struct1.slice(12*11, 12*11+12)
+	var ballLeft = struct1.slice(1, 17);
+	var ballRight = struct1.slice(18, 36)
 	var alignX = 0, alignY = 0;
-	alignFns.push(function() {		
-		var a = Math.atan2(allBalls[0].getY() - allBalls[11].getY(),
-						  allBalls[0].getX() - allBalls[11].getX());		
+	var F = 5;
+	alignFns.push(function() {	
+		if(!allBalls[0])
+			return;
+		
+		var a = Math.atan2(allBalls[0].getY() - allBalls[3].getY(),
+						  allBalls[0].getX() - allBalls[3].getX());		
 		
 		ballLeft.some(function(ball) { 
-			ball.addForce(Math.cos(a)*alignY*10, Math.sin(a)*alignY*10)
-			ball.addForce(Math.cos(a)*alignX*10, Math.sin(a)*alignX*10);
+			ball.addForce(Math.cos(a)*alignY*F, Math.sin(a)*alignY*F)
+			ball.addForce(Math.cos(a)*alignX*F, Math.sin(a)*alignX*F);
 		});		
 		ballRight.some(function(ball) { 
-			ball.addForce(Math.cos(a)*alignY*10, Math.sin(a)*alignY*10);		
-			ball.addForce(-Math.cos(a)*alignX*10, -Math.sin(a)*alignX*10);
+			ball.addForce(Math.cos(a)*alignY*F, Math.sin(a)*alignY*F);		
+			ball.addForce(-Math.cos(a)*alignX*F, -Math.sin(a)*alignX*F);
 		});
 	});
 	
